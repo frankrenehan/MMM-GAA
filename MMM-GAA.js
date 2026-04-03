@@ -3,6 +3,7 @@ Module.register("MMM-GAA", {
   defaults: {
     countyBoardID: 15, // Kilkenny
     countyName: "Kilkenny", // County name for header and filtering
+    siteUrl: "https://kilkennygaa.ie", // County board website URL
     logoUrl: "https://kilkennygaa.b-cdn.net/wp-content/uploads/2025/09/kilkenny.png",
     sport: "hurling", // "hurling", "football", or "all"
     clubSlug: "fenians", // Club page slug (kilkennygaa.ie/clubs/<slug>/)
@@ -52,9 +53,25 @@ Module.register("MMM-GAA", {
 
   // Schedule periodic updates
   scheduleUpdate: function () {
-    setInterval(() => {
+    this.updateTimer = setInterval(() => {
       this.fetchData();
     }, this.config.updateInterval);
+  },
+
+  // MagicMirror lifecycle: pause updates when module is hidden
+  suspend: function () {
+    if (this.updateTimer) {
+      clearInterval(this.updateTimer);
+      this.updateTimer = null;
+    }
+  },
+
+  // MagicMirror lifecycle: resume updates when module is shown again
+  resume: function () {
+    if (!this.updateTimer) {
+      this.scheduleUpdate();
+      this.fetchData();
+    }
   },
 
   // Handle data from node_helper

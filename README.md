@@ -192,7 +192,10 @@ Adjust `max-width` in `MMM-GAA.css` to fit your mirror layout:
 
 - GAA scores: goals-points format (2-14 = 2×3 + 14 = 20 total)
 - Joint underage teams (e.g. "Fenians/ St Patricks") are captured by the club name filter
+- `highlightClub` uses loose substring matching and only affects display highlighting — it does not filter data
+- For counties other than Kilkenny, set `siteUrl` to your county board's site (e.g. `https://dublingaa.ie`)
 - Each endpoint returns max ~100 matches per request
+- `npm test` covers core filtering, sorting, matching, and classification logic — it does not test full HTML fixture parsing
 - Not all county board websites use the same theme – this module targets the standard GAA WordPress fixtures/results theme. Some counties may use a different structure
 
 ## License
