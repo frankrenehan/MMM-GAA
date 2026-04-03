@@ -111,18 +111,6 @@ Module.register("MMM-GAA", {
 
     if (!this.gaaData) return wrapper;
 
-    // === LOGO ===
-    if (this.config.logoUrl) {
-      const logoWrap = document.createElement("div");
-      logoWrap.className = "gaa-logo-wrap";
-      const logo = document.createElement("img");
-      logo.className = "gaa-logo";
-      logo.src = this.config.logoUrl;
-      logo.alt = this.config.countyName || "GAA";
-      logoWrap.appendChild(logo);
-      wrapper.appendChild(logoWrap);
-    }
-
     // === SECTION 1: County Team ===
     if (this.config.showCounty) {
       const hasCounty =
@@ -147,7 +135,7 @@ Module.register("MMM-GAA", {
       (this.gaaData.seniorFixtures && this.gaaData.seniorFixtures.length > 0) ||
       (this.gaaData.seniorResults && this.gaaData.seniorResults.length > 0);
     if (hasSenior) {
-      if (wrapper.children.length > (this.config.logoUrl ? 1 : 0)) {
+      if (wrapper.children.length > 0) {
         const divider1 = document.createElement("div");
         divider1.className = "section-divider";
         wrapper.appendChild(divider1);
@@ -168,7 +156,7 @@ Module.register("MMM-GAA", {
         (this.gaaData.clubFixtures && this.gaaData.clubFixtures.length > 0) ||
         (this.gaaData.clubResults && this.gaaData.clubResults.length > 0);
       if (hasClub) {
-        if (wrapper.children.length > (this.config.logoUrl ? 1 : 0)) {
+        if (wrapper.children.length > 0) {
           const divider2 = document.createElement("div");
           divider2.className = "section-divider";
           wrapper.appendChild(divider2);
@@ -209,10 +197,19 @@ Module.register("MMM-GAA", {
     const section = document.createElement("div");
     section.className = "gaa-section";
 
-    // Section header
+    // Section header (with inline logo for county section)
     const header = document.createElement("div");
     header.className = "section-header";
-    header.textContent = title;
+    if (this.config.logoUrl && title === (this.config.countyName || "County")) {
+      const logo = document.createElement("img");
+      logo.className = "gaa-logo-inline";
+      logo.src = this.config.logoUrl;
+      logo.alt = title;
+      header.appendChild(logo);
+    }
+    const titleSpan = document.createElement("span");
+    titleSpan.textContent = title;
+    header.appendChild(titleSpan);
     section.appendChild(header);
 
     // Recent results
