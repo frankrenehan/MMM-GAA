@@ -1,0 +1,176 @@
+/* MMM-GAA Styles */
+/* Designed for MagicMirror (white-on-black) */
+
+.mmm-gaa {
+  font-family: "Roboto Condensed", "Helvetica Neue", sans-serif;
+  max-width: 350px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+/* County logo */
+.mmm-gaa .gaa-logo-wrap {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.mmm-gaa .gaa-logo {
+  height: 64px;
+  width: auto;
+  opacity: 0.9;
+  filter: drop-shadow(0 0 6px rgba(245, 197, 24, 0.3));
+}
+
+/* Section header - Kilkenny amber */
+.mmm-gaa .section-header {
+  font-size: 24px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #f5c518; /* Kilkenny amber/gold */
+  border-bottom: 2px solid #f5c518;
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+  margin-top: 6px;
+}
+
+/* Sub-headers (Results / Fixtures) */
+.mmm-gaa .sub-header {
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 10px;
+  margin-bottom: 4px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Section divider */
+.mmm-gaa .section-divider {
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  margin: 14px 0 10px 0;
+}
+
+/* Individual match row */
+.mmm-gaa .match-row {
+  margin-bottom: 8px;
+  padding: 3px 0;
+}
+
+/* Date / competition line */
+.mmm-gaa .match-date {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-bottom: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Match line: teams + score/time */
+.mmm-gaa .match-line {
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+/* Each team on its own line */
+.mmm-gaa .team-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+/* Away team indented slightly */
+.mmm-gaa .team-line.away-line {
+  padding-left: 16px;
+}
+
+/* Teams container */
+.mmm-gaa .match-teams {
+  color: rgba(255, 255, 255, 0.85);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Individual team name */
+.mmm-gaa .team-name {
+  color: rgba(255, 255, 255, 0.85);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Highlighted club (your club) */
+.mmm-gaa .team-name.highlight {
+  color: #f5c518;
+  font-weight: 600;
+}
+
+/* Winning team */
+.mmm-gaa .team-name.winner {
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.mmm-gaa .team-name.highlight.winner {
+  color: #f5c518;
+}
+
+/* "v" separator for fixtures */
+.mmm-gaa .vs-text {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Score on the right of each team line */
+.mmm-gaa .team-score {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 16px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Score text between team names for results */
+.mmm-gaa .score-text {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+/* Time badge for fixtures */
+.mmm-gaa .time-badge {
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+  font-size: 17px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Venue line */
+.mmm-gaa .match-venue {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.25);
+  text-align: left;
+}
+
+/* Last updated footer */
+.mmm-gaa .gaa-footer {
+  text-align: center;
+  margin-top: 10px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+/* Loading / error states */
+.mmm-gaa .loading,
+.mmm-gaa .error {
+  padding: 10px 0;
+  text-align: center;
+  font-size: 16px;
+}

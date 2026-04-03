@@ -1,0 +1,12 @@
+{
+  "name": "mmm-gaa",
+  "version": "1.0.0",
+  "description": "MagicMirror module for GAA fixtures and results",
+  "main": "node_helper.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "node-html-parser": "^6.1.0"
+  }
+}
