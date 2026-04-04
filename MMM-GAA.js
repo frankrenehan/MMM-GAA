@@ -39,6 +39,7 @@ Module.register("MMM-GAA", {
   // Module startup
   start: function () {
     Log.info("[MMM-GAA] Starting module");
+    this.instanceId = this.config.countyBoardID + "-" + (this.config.clubSlug || "");
     this.gaaData = null;
     this.error = null;
     this.loaded = false;
@@ -48,7 +49,10 @@ Module.register("MMM-GAA", {
 
   // Request data from node_helper
   fetchData: function () {
-    this.sendSocketNotification("FETCH_GAA_DATA", this.config);
+    this.sendSocketNotification("FETCH_GAA_DATA", {
+      instanceId: this.instanceId,
+      ...this.config,
+    });
   },
 
   // Schedule periodic updates
@@ -74,8 +78,10 @@ Module.register("MMM-GAA", {
     }
   },
 
-  // Handle data from node_helper
+  // Handle data from node_helper — only process if instanceId matches
   socketNotificationReceived: function (notification, payload) {
+    if (payload && payload.instanceId !== this.instanceId) return;
+
     if (notification === "GAA_DATA") {
       this.gaaData = payload;
       this.loaded = true;

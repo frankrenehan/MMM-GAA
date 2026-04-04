@@ -45,10 +45,14 @@ module.exports = NodeHelper.create({
   },
 
   fetchAllData: async function (config) {
-    const results = {};
+    const instanceId = config.instanceId;
+    const results = { instanceId };
     const siteUrl = config.siteUrl || "https://kilkennygaa.ie";
     const baseUrl = `${siteUrl}/fixtures-results`;
     let feedErrors = 0;
+
+    // Per-instance cache bucket
+    if (!this._cache[instanceId]) this._cache[instanceId] = {};
 
     // ── FEED 1: Inter-county team ──
     try {
@@ -81,17 +85,17 @@ module.exports = NodeHelper.create({
           this.matchesCounty(m.awayTeam, countyName)
       );
 
-      this._cache.county = {
+      this._cache[instanceId].county = {
         countyFixtures: results.countyFixtures,
         countyResults: results.countyResults,
       };
     } catch (err) {
       feedErrors++;
       console.error("[MMM-GAA] County feed error:", err.message);
-      if (this._cache.county) {
+      if (this._cache[instanceId].county) {
         console.log("[MMM-GAA] Using cached county data");
-        results.countyFixtures = this._cache.county.countyFixtures;
-        results.countyResults = this._cache.county.countyResults;
+        results.countyFixtures = this._cache[instanceId].county.countyFixtures;
+        results.countyResults = this._cache[instanceId].county.countyResults;
       } else {
         results.countyFixtures = [];
         results.countyResults = [];
@@ -119,17 +123,17 @@ module.exports = NodeHelper.create({
       results.seniorFixtures = seniorAll.filter((m) => !m.isPlayed);
       results.seniorResults = seniorAll.filter((m) => m.isPlayed);
 
-      this._cache.senior = {
+      this._cache[instanceId].senior = {
         seniorFixtures: results.seniorFixtures,
         seniorResults: results.seniorResults,
       };
     } catch (err) {
       feedErrors++;
       console.error("[MMM-GAA] Senior feed error:", err.message);
-      if (this._cache.senior) {
+      if (this._cache[instanceId].senior) {
         console.log("[MMM-GAA] Using cached senior data");
-        results.seniorFixtures = this._cache.senior.seniorFixtures;
-        results.seniorResults = this._cache.senior.seniorResults;
+        results.seniorFixtures = this._cache[instanceId].senior.seniorFixtures;
+        results.seniorResults = this._cache[instanceId].senior.seniorResults;
       } else {
         results.seniorFixtures = [];
         results.seniorResults = [];
@@ -163,17 +167,17 @@ module.exports = NodeHelper.create({
         results.clubResults = [];
       }
 
-      this._cache.club = {
+      this._cache[instanceId].club = {
         clubFixtures: results.clubFixtures,
         clubResults: results.clubResults,
       };
     } catch (err) {
       feedErrors++;
       console.error("[MMM-GAA] Club feed error:", err.message);
-      if (this._cache.club) {
+      if (this._cache[instanceId].club) {
         console.log("[MMM-GAA] Using cached club data");
-        results.clubFixtures = this._cache.club.clubFixtures;
-        results.clubResults = this._cache.club.clubResults;
+        results.clubFixtures = this._cache[instanceId].club.clubFixtures;
+        results.clubResults = this._cache[instanceId].club.clubResults;
       } else {
         results.clubFixtures = [];
         results.clubResults = [];
@@ -188,7 +192,7 @@ module.exports = NodeHelper.create({
 
     if (feedErrors === 3 && !hasAnyData) {
       console.error("[MMM-GAA] All feeds failed with no cached data");
-      this.sendSocketNotification("GAA_ERROR", { error: "All feeds failed" });
+      this.sendSocketNotification("GAA_ERROR", { instanceId, error: "All feeds failed" });
       return;
     }
 

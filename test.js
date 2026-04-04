@@ -291,6 +291,7 @@ test("uses cached data when fetch fails after a successful fetch", async () => {
   };
 
   const config = {
+    instanceId: "15-team-a",
     countyBoardID: 15,
     countyName: "Kilkenny",
     sport: "hurling",
@@ -307,9 +308,9 @@ test("uses cached data when fetch fails after a successful fetch", async () => {
   await instance.fetchAllData(config);
   assert.strictEqual(notifications.length, 1);
   assert.strictEqual(notifications[0].type, "GAA_DATA");
-  assert.ok(instance._cache.county);
-  assert.ok(instance._cache.senior);
-  assert.ok(instance._cache.club);
+  assert.ok(instance._cache["15-team-a"].county);
+  assert.ok(instance._cache["15-team-a"].senior);
+  assert.ok(instance._cache["15-team-a"].club);
 
   // Second fetch: all fail, should use cache and still send GAA_DATA
   notifications.length = 0;
@@ -327,6 +328,7 @@ test("sends GAA_ERROR when all feeds fail with no cache", async () => {
   instance.fetchPage = async function () { throw new Error("fail"); };
 
   await instance.fetchAllData({
+    instanceId: "15-",
     countyBoardID: 15,
     countyName: "Kilkenny",
     sport: "hurling",
@@ -334,6 +336,7 @@ test("sends GAA_ERROR when all feeds fail with no cache", async () => {
 
   assert.strictEqual(notifications.length, 1);
   assert.strictEqual(notifications[0].type, "GAA_ERROR");
+  assert.strictEqual(notifications[0].data.instanceId, "15-");
 });
 
 // ════════════════════════════════════════════
@@ -355,6 +358,7 @@ test("payload includes lastUpdated ISO string", async () => {
 
   const before = new Date().toISOString();
   await instance.fetchAllData({
+    instanceId: "15-",
     countyBoardID: 15,
     countyName: "Kilkenny",
     sport: "hurling",
@@ -407,6 +411,7 @@ test("fixtures are sorted date ascending (nearest first)", async () => {
   };
 
   await instance.fetchAllData({
+    instanceId: "15-",
     countyBoardID: 15,
     countyName: "Kilkenny",
     sport: "hurling",
@@ -466,6 +471,7 @@ test("results are sorted date descending (most recent first)", async () => {
   };
 
   await instance.fetchAllData({
+    instanceId: "15-",
     countyBoardID: 15,
     countyName: "Kilkenny",
     sport: "hurling",
@@ -522,6 +528,7 @@ test("backfills with future fixtures outside window when too few in window", asy
   };
 
   await instance.fetchAllData({
+    instanceId: "15-",
     countyBoardID: 15,
     countyName: "Kilkenny",
     sport: "hurling",
@@ -574,6 +581,7 @@ test("never includes past matches in fixture fallback", async () => {
   };
 
   await instance.fetchAllData({
+    instanceId: "15-",
     countyBoardID: 15,
     countyName: "Kilkenny",
     sport: "hurling",
@@ -586,6 +594,95 @@ test("never includes past matches in fixture fallback", async () => {
     const d = h.parseGAADate(f.date);
     assert.ok(d >= today, `fixture date ${f.date} should not be in the past`);
   }
+});
+
+// ════════════════════════════════════════════
+// Multi-instance isolation
+// ════════════════════════════════════════════
+console.log("\nmulti-instance:");
+
+test("concurrent fetches with different instanceIds return independent data", async () => {
+  const instance = Object.create(h);
+  instance._cache = {};
+  const notifications = [];
+  instance.sendSocketNotification = (type, data) => notifications.push({ type, data });
+
+  const today = new Date();
+  const futureDate = new Date(today); futureDate.setDate(futureDate.getDate() + 5);
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+
+  // Return different team names based on which county is being fetched
+  instance.fetchPage = async function (url) {
+    if (url.includes("countyBoardID=15")) {
+      return `<div class="fix_res_date">${fmt(futureDate)}</div>` +
+        '<div class="competition"><div class="competition-name"><a>C</a></div>' +
+        '<div class="comp_details"><div class="home_team">Kilkenny</div>' +
+        '<div class="away_team">Cork</div><div class="time">14:00</div></div></div>';
+    }
+    if (url.includes("countyBoardID=27")) {
+      return `<div class="fix_res_date">${fmt(futureDate)}</div>` +
+        '<div class="competition"><div class="competition-name"><a>C</a></div>' +
+        '<div class="comp_details"><div class="home_team">Tipperary</div>' +
+        '<div class="away_team">Limerick</div><div class="time">15:00</div></div></div>';
+    }
+    return "";
+  };
+
+  // Fetch both concurrently
+  await Promise.all([
+    instance.fetchAllData({
+      instanceId: "15-fenians",
+      countyBoardID: 15,
+      countyName: "Kilkenny",
+      sport: "hurling",
+      fixturesDays: 30,
+      maxCountyFixtures: 4,
+      maxSeniorFixtures: 6,
+      maxClubFixtures: 6,
+    }),
+    instance.fetchAllData({
+      instanceId: "27-thurles",
+      countyBoardID: 27,
+      countyName: "Tipperary",
+      siteUrl: "https://tipperary.gaa.ie",
+      sport: "hurling",
+      fixturesDays: 30,
+      maxCountyFixtures: 4,
+      maxSeniorFixtures: 6,
+      maxClubFixtures: 6,
+    }),
+  ]);
+
+  assert.strictEqual(notifications.length, 2, "should have two GAA_DATA responses");
+
+  const kkPayload = notifications.find((n) => n.data.instanceId === "15-fenians");
+  const tipPayload = notifications.find((n) => n.data.instanceId === "27-thurles");
+  assert.ok(kkPayload, "should have Kilkenny payload");
+  assert.ok(tipPayload, "should have Tipperary payload");
+
+  // Kilkenny data should contain Kilkenny teams, not Tipperary
+  if (kkPayload.data.countyFixtures.length > 0) {
+    assert.ok(
+      kkPayload.data.countyFixtures.some(
+        (m) => m.homeTeam === "Kilkenny" || m.awayTeam === "Kilkenny"
+      ),
+      "Kilkenny payload should contain Kilkenny fixtures"
+    );
+  }
+
+  // Tipperary data should contain Tipperary teams, not Kilkenny
+  if (tipPayload.data.countyFixtures.length > 0) {
+    assert.ok(
+      tipPayload.data.countyFixtures.some(
+        (m) => m.homeTeam === "Tipperary" || m.awayTeam === "Tipperary"
+      ),
+      "Tipperary payload should contain Tipperary fixtures"
+    );
+  }
+
+  // Caches should be keyed independently
+  assert.ok(instance._cache["15-fenians"], "should have Kilkenny cache");
+  assert.ok(instance._cache["27-thurles"], "should have Tipperary cache");
 });
 
 // ── Summary ──
