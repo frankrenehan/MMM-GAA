@@ -143,24 +143,41 @@ module.exports = NodeHelper.create({
     }
 
     // ── FEED 3: Your club (all grades) ──
-    // Uses fixtures-results-ajax/ instead of clubs-fixtures-results-ajax/
-    // because the clubs endpoint caps at ~100 matches, which can exclude
-    // smaller clubs. The fixtures endpoint returns all matches uncapped.
+    // The clubs endpoint caps at ~100 matches per request, so a single
+    // unfiltered fetch misses smaller clubs. We fetch multiple grade
+    // categories in parallel to get broad coverage, then merge and dedup.
     try {
       const clubSlug = config.clubSlug;
       const clubName = config.clubDisplayName || clubSlug;
       if (clubSlug) {
-        const allClubUrl = this.buildUrl(
-          `${baseUrl}/fixtures-results-ajax/`,
-          {
-            countyBoardID: config.countyBoardID,
-            orderTBCLast: "Y",
-          }
-        );
-        const allClubHtml = await this.fetchPage(allClubUrl);
-        const allClubMatches = this.parseMatches(allClubHtml);
+        const grades = ["senior", "intermediate", "junior", "minor", "juvenile", "u21"];
+        const baseParams = {
+          countyBoardID: config.countyBoardID,
+          orderTBCLast: "Y",
+        };
 
-        const myClubMatches = allClubMatches.filter(
+        const fetches = grades.map((grade) =>
+          this.fetchPage(
+            this.buildUrl(`${baseUrl}/clubs-fixtures-results-ajax/`, {
+              ...baseParams,
+              grade,
+            })
+          ).then((html) => this.parseMatches(html))
+           .catch(() => [])
+        );
+        const allGradeResults = await Promise.all(fetches);
+        const allClubMatches = allGradeResults.flat();
+
+        // Dedup by home+away+date (same match may appear in overlapping grades)
+        const seen = new Set();
+        const uniqueMatches = allClubMatches.filter((m) => {
+          const key = `${m.homeTeam}|${m.awayTeam}|${m.date}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
+        const myClubMatches = uniqueMatches.filter(
           (m) =>
             this.matchesClub(m.homeTeam, clubName) ||
             this.matchesClub(m.awayTeam, clubName)
