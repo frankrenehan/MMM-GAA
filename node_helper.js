@@ -69,13 +69,18 @@ module.exports = NodeHelper.create({
       try {
         const countyName = config.countyName || "Kilkenny";
 
+        const countyParams = {
+          countyBoardID: config.countyBoardID,
+          level: "inter_county",
+          orderTBCLast: "Y",
+        };
+        const sport = config.sport || "hurling";
+        if (sport !== "all") {
+          countyParams.sport = sport;
+        }
         const countyUrl = this.buildUrl(
           `${baseUrl}/clubs-fixtures-results-ajax/`,
-          {
-            countyBoardID: config.countyBoardID,
-            level: "inter_county",
-            orderTBCLast: "Y",
-          }
+          countyParams
         );
         const countyHtml = await this.fetchPage(countyUrl);
         const countyAll = this.parseMatches(countyHtml).filter(

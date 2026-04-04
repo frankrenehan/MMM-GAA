@@ -59,12 +59,12 @@ Add to your `config/config.js` modules array:
 | `resultsDays` | `7` | Show results from the last N days |
 | `fixturesDays` | `14` | Show fixtures for the next N days |
 | `updateInterval` | `1800000` | Refresh interval in ms (default 30 min) |
-| `maxCountyFixtures` | `4` | Max county fixtures shown |
-| `maxCountyResults` | `3` | Max county results shown |
-| `maxSeniorFixtures` | `6` | Max senior club fixtures shown |
-| `maxSeniorResults` | `4` | Max senior club results shown |
-| `maxClubFixtures` | `6` | Max home club fixtures shown |
-| `maxClubResults` | `3` | Max home club results shown |
+| `maxCountyFixtures` | `3` | Max county fixtures shown |
+| `maxCountyResults` | `2` | Max county results shown |
+| `maxSeniorFixtures` | `4` | Max senior club fixtures shown |
+| `maxSeniorResults` | `2` | Max senior club results shown |
+| `maxClubFixtures` | `4` | Max home club fixtures shown |
+| `maxClubResults` | `2` | Max home club results shown |
 | `showVenue` | `true` | Show venue beneath each match |
 | `showCompetition` | `true` | Show competition name |
 | `sponsorPatterns` | Kilkenny defaults | Array of regex strings to strip from competition names (see below) |

@@ -12,12 +12,12 @@ Module.register("MMM-GAA", {
     fixturesDays: 14, // Show fixtures for the next N days
     updateInterval: 30 * 60 * 1000, // 30 minutes
     showCounty: true, // Show Kilkenny county team section
-    maxCountyFixtures: 4, // Max upcoming county fixtures to show
-    maxCountyResults: 3, // Max recent county results to show
-    maxSeniorFixtures: 6, // Max upcoming senior club fixtures to show
-    maxSeniorResults: 4, // Max recent senior club results to show
-    maxClubFixtures: 6, // Max upcoming club fixtures to show
-    maxClubResults: 3, // Max recent club results to show
+    maxCountyFixtures: 3, // Max upcoming county fixtures to show
+    maxCountyResults: 2, // Max recent county results to show
+    maxSeniorFixtures: 4, // Max upcoming senior club fixtures to show
+    maxSeniorResults: 2, // Max recent senior club results to show
+    maxClubFixtures: 4, // Max upcoming club fixtures to show
+    maxClubResults: 2, // Max recent club results to show
     animationSpeed: 1000,
     highlightClub: "Fenians", // Highlight this club name in amber
     showVenue: true,
