@@ -254,10 +254,10 @@ module.exports = NodeHelper.create({
         })
         .sort(sortDesc);
 
-    // Select fixtures inside the configured window, sorted nearest-first.
-    // If too few, backfill with the next-nearest future fixtures outside
-    // the window (never past matches).
-    const filterFixtures = (matches, minItems) => {
+    // Fixtures within the configured window, sorted nearest-first.
+    // backfill=true: if too few in window, pull next-nearest future fixtures.
+    // backfill=false: strict window only (returns empty if nothing upcoming).
+    const filterFixtures = (matches, minItems, backfill) => {
       const futureMatches = matches
         .filter((m) => {
           const d = getDate(m);
@@ -266,7 +266,7 @@ module.exports = NodeHelper.create({
         .sort(sortAsc);
 
       const inWindow = futureMatches.filter((m) => getDate(m) < fixturesCutoff);
-      if (inWindow.length >= (minItems || 2)) return inWindow;
+      if (!backfill || inWindow.length >= (minItems || 2)) return inWindow;
 
       // Backfill from future matches outside the window
       const outside = futureMatches.filter((m) => getDate(m) >= fixturesCutoff);
@@ -274,11 +274,11 @@ module.exports = NodeHelper.create({
     };
 
     results.countyResults = filterResults(results.countyResults);
-    results.countyFixtures = filterFixtures(results.countyFixtures, config.maxCountyFixtures || 4);
+    results.countyFixtures = filterFixtures(results.countyFixtures, config.maxCountyFixtures || 3, true);
     results.seniorResults = filterResults(results.seniorResults);
-    results.seniorFixtures = filterFixtures(results.seniorFixtures, config.maxSeniorFixtures || 6);
+    results.seniorFixtures = filterFixtures(results.seniorFixtures, config.maxSeniorFixtures || 4, false);
     results.clubResults = filterResults(results.clubResults);
-    results.clubFixtures = filterFixtures(results.clubFixtures, config.maxClubFixtures || 6);
+    results.clubFixtures = filterFixtures(results.clubFixtures, config.maxClubFixtures || 4, true);
 
     results.lastUpdated = new Date().toISOString();
 
