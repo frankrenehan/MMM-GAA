@@ -30,7 +30,8 @@ Module._resolveFilename = origResolveFilename;
 
 // Build a shortenCompetition function that takes (comp, sponsorPatterns)
 // Mirrors the logic from MMM-GAA.js for testability (browser module can't be required).
-function makeShortenCompetition(sponsorPatterns) {
+function makeShortenCompetition(sponsorPatterns, sport) {
+  const cfgSport = sport || "hurling";
   return function shortenCompetition(comp) {
     if (!comp) return "";
     let short = comp;
@@ -45,15 +46,28 @@ function makeShortenCompetition(sponsorPatterns) {
       .replace(/Munster\s*GAA\s*/gi, "Munster ")
       .replace(/Connacht\s*GAA\s*/gi, "Connacht ")
       .replace(/Ulster\s*GAA\s*/gi, "Ulster ")
+      .replace(/^GAA\s+/i, "")
       .replace(/\s*-\s*League\s*Division\s*\d+\s*/gi, " ")
       .replace(/\s*-\s*Cup\s*Division\s*\d+\s*/gi, " ")
+      .replace(/\s*-\s*League\s*Group\s*\d+\s*-\s*\d+/gi, "")
       .replace(/\s*-\s*Round\s*\d+\s*/gi, "")
       .replace(/\s*Round\s*\d+\s*/gi, "")
+      .replace(/\s*-\s*Rd\s*\d+\s*/gi, "")
+      .replace(/\s*-\s*Phase\s*\d+\s*/gi, "")
+      .replace(/\s*-\s*Gp?\s*\d+\s*/gi, "")
+      .replace(/\s*-\s*Group\s*\d+\s*/gi, "")
+      .replace(/\s*Group\s*\d+\s*/gi, "")
+      .replace(/\s+20\d{2}\b/g, "")
+      .replace(/\s+\d{2}(?=\s*-|\s*$)/g, "")
       .replace(/\s*\(FOD\)\s*/gi, "")
       .replace(/\s*FOD\s*/gi, "")
+      .replace(/\s*-\s*((?:Semi[- ]?|Quarter[- ]?)?Final)\s*/gi, " $1")
       .replace(/\s*-\s*$/, "")
       .replace(/\s+/g, " ")
       .trim();
+    if (cfgSport !== "all") {
+      short = short.replace(new RegExp("\\b" + cfgSport + "\\s*", "gi"), "").trim();
+    }
     if (short.length > 40) {
       short = short.substring(0, 37) + "\u2026";
     }
@@ -325,11 +339,11 @@ test("strips default Kilkenny sponsors", () => {
   ]);
   assert.strictEqual(
     shorten("St. Canice's Credit Union Senior Hurling Championship"),
-    "Senior Hurling Championship"
+    "Senior Championship"
   );
   assert.strictEqual(
     shorten("Allianz Hurling League"),
-    "Hurling League"
+    "League"
   );
 });
 
@@ -340,11 +354,11 @@ test("strips custom sponsor patterns", () => {
   ]);
   assert.strictEqual(
     shorten("SuperValu Munster Senior Hurling Championship"),
-    "Munster Senior Hurling Championship"
+    "Munster Senior Championship"
   );
   assert.strictEqual(
     shorten("Bord G\u00e1is Energy U20 Hurling Championship"),
-    "U20 Hurling Championship"
+    "U20 Championship"
   );
 });
 
@@ -352,9 +366,25 @@ test("applies structural cleanup regardless of sponsors", () => {
   const shorten = makeShortenCompetition([]);
   assert.strictEqual(
     shorten("Leinster GAA Senior Hurling Championship - Round 3"),
-    "Leinster Senior Hurling Championship"
+    "Leinster Senior Championship"
   );
   assert.strictEqual(shorten("Something (FOD)"), "Something");
+});
+
+test("keeps sport name when sport is 'all'", () => {
+  const shorten = makeShortenCompetition([], "all");
+  assert.strictEqual(
+    shorten("Leinster GAA Senior Hurling Championship - Round 3"),
+    "Leinster Senior Hurling Championship"
+  );
+});
+
+test("strips football when sport is 'football'", () => {
+  const shorten = makeShortenCompetition([], "football");
+  assert.strictEqual(
+    shorten("Leinster GAA Senior Football Championship - Round 3"),
+    "Leinster Senior Championship"
+  );
 });
 
 test("handles empty patterns array", () => {

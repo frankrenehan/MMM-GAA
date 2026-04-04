@@ -381,19 +381,45 @@ Module.register("MMM-GAA", {
 
     // Universal structural cleanup (not sponsor-specific)
     short = short
+      // Province GAA → Province
       .replace(/Leinster\s*GAA\s*/gi, "Leinster ")
       .replace(/Munster\s*GAA\s*/gi, "Munster ")
       .replace(/Connacht\s*GAA\s*/gi, "Connacht ")
       .replace(/Ulster\s*GAA\s*/gi, "Ulster ")
+      // Bare "GAA" prefix (e.g. "GAA Hurling All-Ireland...")
+      .replace(/^GAA\s+/i, "")
+      // League/cup division suffixes
       .replace(/\s*-\s*League\s*Division\s*\d+\s*/gi, " ")
       .replace(/\s*-\s*Cup\s*Division\s*\d+\s*/gi, " ")
+      // League group suffixes (e.g. "- League Group 1 - 1") — must run before generic Group stripping
+      .replace(/\s*-\s*League\s*Group\s*\d+\s*-\s*\d+/gi, "")
+      // Round, phase, group, Rd, Gp suffixes
       .replace(/\s*-\s*Round\s*\d+\s*/gi, "")
       .replace(/\s*Round\s*\d+\s*/gi, "")
+      .replace(/\s*-\s*Rd\s*\d+\s*/gi, "")
+      .replace(/\s*-\s*Phase\s*\d+\s*/gi, "")
+      .replace(/\s*-\s*Gp?\s*\d+\s*/gi, "")
+      .replace(/\s*-\s*Group\s*\d+\s*/gi, "")
+      .replace(/\s*Group\s*\d+\s*/gi, "")
+      // Inline years (e.g. "2026" or "25" mid-name)
+      .replace(/\s+20\d{2}\b/g, "")
+      .replace(/\s+\d{2}(?=\s*-|\s*$)/g, "")
+      // FOD markers
       .replace(/\s*\(FOD\)\s*/gi, "")
       .replace(/\s*FOD\s*/gi, "")
+      // Clean up "- Final" → "Final", "- Semi-Final" → "Semi-Final", "- Quarter Final" → "Quarter Final"
+      .replace(/\s*-\s*((?:Semi[- ]?|Quarter[- ]?)?Final)\s*/gi, " $1")
+      // Trailing dash, collapse whitespace
       .replace(/\s*-\s*$/, "")
       .replace(/\s+/g, " ")
       .trim();
+
+    // When a specific sport is selected, the sport name is redundant
+    // (it's already in the section header). Strip it for brevity.
+    const sport = this.config.sport || "hurling";
+    if (sport !== "all") {
+      short = short.replace(new RegExp("\\b" + sport + "\\s*", "gi"), "").trim();
+    }
 
     // Truncate if still long
     if (short.length > 40) {

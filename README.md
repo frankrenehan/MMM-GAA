@@ -160,7 +160,7 @@ The module scrapes public endpoints on GAA county board WordPress sites:
 |------|--------|--------|
 | **County team** | `clubs-fixtures-results-ajax/?countyBoardID=N&level=inter_county` | Filtered to exact county name, split by played/unplayed |
 | **Senior club** | `clubs-fixtures-results-ajax/?countyBoardID=N&sport=X&level=club&grade=senior` | Single fetch, split by played/unplayed |
-| **Your club** | `clubs-fixtures-results-ajax/?countyBoardID=N` | Filtered by club name |
+| **Your club** | `fixtures-results-ajax/?countyBoardID=N` | Filtered by club name (uncapped endpoint for full coverage) |
 
 Results are trimmed to the configured date window. Fixtures prefer the configured future window, but will backfill with the next-nearest future fixtures if too few are available, so the mirror is never empty.
 
@@ -184,7 +184,7 @@ Adjust `max-width` in `MMM-GAA.css` to fit your mirror layout:
 
 ```css
 .mmm-gaa {
-  max-width: 350px; /* increase or decrease as needed */
+  max-width: 300px; /* increase or decrease as needed */
 }
 ```
 
