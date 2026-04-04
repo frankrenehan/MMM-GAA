@@ -39,7 +39,7 @@ Module.register("MMM-GAA", {
   // Module startup
   start: function () {
     Log.info("[MMM-GAA] Starting module");
-    this.instanceId = this.config.countyBoardID + "-" + (this.config.clubSlug || "");
+    this.instanceId = this.config.countyBoardID + "-" + (this.config.sport || "hurling") + "-" + (this.config.clubSlug || "");
     this.gaaData = null;
     this.error = null;
     this.loaded = false;
@@ -167,8 +167,10 @@ Module.register("MMM-GAA", {
           divider2.className = "section-divider";
           wrapper.appendChild(divider2);
         }
+        const clubTitle = this.config.clubDisplayName ||
+          this.config.clubSlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
         const clubSection = this.buildSection(
-          this.config.clubDisplayName,
+          clubTitle,
           this.gaaData.clubFixtures,
           this.gaaData.clubResults,
           this.config.maxClubFixtures,
@@ -206,7 +208,8 @@ Module.register("MMM-GAA", {
     // Section header (with inline logo for county section)
     const header = document.createElement("div");
     header.className = "section-header";
-    if (this.config.logoUrl && title === (this.config.countyName || "County")) {
+    if (this.config.logoUrl && title === (this.config.countyName || "County") &&
+        /^https?:\/\//i.test(this.config.logoUrl)) {
       const logo = document.createElement("img");
       logo.className = "gaa-logo-inline";
       logo.src = this.config.logoUrl;
@@ -304,7 +307,7 @@ Module.register("MMM-GAA", {
       homeName.textContent = match.homeTeam;
       const timeBadge = document.createElement("span");
       timeBadge.className = "time-badge";
-      timeBadge.textContent = match.time || "TBC";
+      timeBadge.textContent = this.formatTime(match.date, match.time);
       homeLine.appendChild(homeName);
       homeLine.appendChild(timeBadge);
       row.appendChild(homeLine);
@@ -354,11 +357,15 @@ Module.register("MMM-GAA", {
     if (!comp) return "";
     let short = comp;
 
-    // Strip configurable sponsor names
+    // Strip configurable sponsor names.
+    // Patterns come from the module owner's config — skip any that are
+    // invalid or excessively long to avoid ReDoS from complex expressions.
     const patterns = this.config.sponsorPatterns || [];
     for (const pat of patterns) {
       try {
-        short = short.replace(new RegExp(pat, "gi"), "");
+        if (typeof pat === "string" && pat.length <= 200) {
+          short = short.replace(new RegExp(pat, "gi"), "");
+        }
       } catch (e) {
         // Skip invalid regex patterns silently
       }
@@ -410,6 +417,65 @@ Module.register("MMM-GAA", {
       .replace(/(\w+day)\s+/, (m, day) => day.substring(0, 3) + " ")
       .replace(/(\d+)(st|nd|rd|th)/, "$1")
       .replace(/\s+\d{4}$/, "");
+  },
+
+  // Convert a match time from Irish time (Europe/Dublin) to the user's
+  // local timezone. Returns the raw time or "TBC" if conversion isn't possible.
+  // All GAA match times are Irish, so we interpret them as Europe/Dublin
+  // and let the browser format them in the local timezone.
+  formatTime: function (dateStr, timeStr) {
+    if (!timeStr || !/^\d{1,2}:\d{2}$/.test(timeStr.trim())) return timeStr || "TBC";
+
+    // Parse date components (needed to determine DST on the match day)
+    let year, month, day;
+    const isoMatch = dateStr && dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) {
+      year = parseInt(isoMatch[1], 10);
+      month = parseInt(isoMatch[2], 10) - 1;
+      day = parseInt(isoMatch[3], 10);
+    } else if (dateStr) {
+      const months = {
+        jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+        jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+      };
+      const m = dateStr.match(/(\d+)\w*\s+(\w{3})\w*\s+(\d{4})/);
+      if (m && months[m[2].toLowerCase()] !== undefined) {
+        day = parseInt(m[1], 10);
+        month = months[m[2].toLowerCase()];
+        year = parseInt(m[3], 10);
+      }
+    }
+    if (year === undefined) return timeStr;
+
+    const parts = timeStr.trim().split(":");
+    const h = parseInt(parts[0], 10);
+    const min = parseInt(parts[1], 10);
+
+    // Determine Dublin's UTC offset on this date by probing with a known UTC time.
+    // Format the probe time in Dublin to see what hour Dublin shows for that UTC hour.
+    const probe = new Date(Date.UTC(year, month, day, h, min));
+    try {
+      const dublinParts = new Intl.DateTimeFormat("en", {
+        timeZone: "Europe/Dublin",
+        hour: "numeric",
+        minute: "numeric",
+        hour12: false,
+      }).formatToParts(probe);
+      const dublinH = parseInt(dublinParts.find((p) => p.type === "hour").value, 10);
+      const dublinM = parseInt(dublinParts.find((p) => p.type === "minute").value, 10);
+
+      // Dublin offset = what Dublin shows minus what we sent as UTC
+      let offsetMin = (dublinH * 60 + dublinM) - (h * 60 + min);
+      if (offsetMin > 720) offsetMin -= 1440;
+      if (offsetMin < -720) offsetMin += 1440;
+
+      // "h:min in Dublin" as UTC = h:min minus Dublin's offset from UTC
+      const utcMs = Date.UTC(year, month, day, h, min) - offsetMin * 60000;
+      return new Date(utcMs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    } catch (e) {
+      // Intl not supported or timezone not available — show raw time
+      return timeStr;
+    }
   },
 
   // CSS styles

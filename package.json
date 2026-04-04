@@ -6,6 +6,20 @@
   "scripts": {
     "test": "node test.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/frankrenehan/MMM-GAA.git"
+  },
+  "keywords": [
+    "MagicMirror",
+    "GAA",
+    "fixtures",
+    "results",
+    "hurling",
+    "football"
+  ],
+  "author": "Frank Renehan",
+  "license": "MIT",
   "dependencies": {
     "node-html-parser": "^6.1.0"
   }

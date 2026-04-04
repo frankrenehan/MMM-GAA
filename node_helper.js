@@ -45,60 +45,62 @@ module.exports = NodeHelper.create({
   },
 
   fetchAllData: async function (config) {
-    const instanceId = config.instanceId;
+    const instanceId = config.instanceId || "default";
     const results = { instanceId };
-    const siteUrl = config.siteUrl || "https://kilkennygaa.ie";
+    const rawSiteUrl = config.siteUrl || "https://kilkennygaa.ie";
+    // Only allow http(s) URLs to prevent fetching from unexpected protocols.
+    // Strip trailing slash to avoid double-slash in constructed URLs.
+    const siteUrl = /^https?:\/\//i.test(rawSiteUrl)
+      ? rawSiteUrl.replace(/\/+$/, "")
+      : "https://kilkennygaa.ie";
     const baseUrl = `${siteUrl}/fixtures-results`;
     let feedErrors = 0;
 
     // Per-instance cache bucket
     if (!this._cache[instanceId]) this._cache[instanceId] = {};
 
-    // ── FEED 1: Inter-county team ──
-    try {
-      const countyName = config.countyName || "Kilkenny";
+    // ── FEED 1: Inter-county team (senior, U-20, minor, etc.) ──
+    // Single fetch via clubs endpoint with level=inter_county, split by isPlayed.
+    // Skip entirely if showCounty is explicitly false.
+    if (config.showCounty === false) {
+      results.countyFixtures = [];
+      results.countyResults = [];
+    } else {
+      try {
+        const countyName = config.countyName || "Kilkenny";
 
-      const countyFixUrl = this.buildUrl(
-        `${baseUrl}/fixtures-results-ajax/`,
-        { countyBoardID: config.countyBoardID, fixturesOnly: "Y" }
-      );
-      const countyFixHtml = await this.fetchPage(countyFixUrl);
-      results.countyFixtures = this.parseMatches(countyFixHtml).filter(
-        (m) =>
-          this.matchesCounty(m.homeTeam, countyName) ||
-          this.matchesCounty(m.awayTeam, countyName)
-      );
+        const countyUrl = this.buildUrl(
+          `${baseUrl}/clubs-fixtures-results-ajax/`,
+          {
+            countyBoardID: config.countyBoardID,
+            level: "inter_county",
+            orderTBCLast: "Y",
+          }
+        );
+        const countyHtml = await this.fetchPage(countyUrl);
+        const countyAll = this.parseMatches(countyHtml).filter(
+          (m) =>
+            this.matchesCounty(m.homeTeam, countyName) ||
+            this.matchesCounty(m.awayTeam, countyName)
+        );
+        results.countyFixtures = countyAll.filter((m) => !m.isPlayed);
+        results.countyResults = countyAll.filter((m) => m.isPlayed);
 
-      const countyResUrl = this.buildUrl(
-        `${baseUrl}/fixtures-results-ajax/`,
-        {
-          countyBoardID: config.countyBoardID,
-          resultsOnly: "Y",
-          reverseDateOrder: "Y",
-          showByeGames: "N",
+        this._cache[instanceId].county = {
+          countyFixtures: results.countyFixtures,
+          countyResults: results.countyResults,
+        };
+      } catch (err) {
+        feedErrors++;
+        console.error("[MMM-GAA] County feed error:", err.message);
+        if (this._cache[instanceId].county) {
+          console.log("[MMM-GAA] Using cached county data");
+          results.countyFixtures = this._cache[instanceId].county.countyFixtures;
+          results.countyResults = this._cache[instanceId].county.countyResults;
+        } else {
+          results.countyFixtures = [];
+          results.countyResults = [];
         }
-      );
-      const countyResHtml = await this.fetchPage(countyResUrl);
-      results.countyResults = this.parseMatches(countyResHtml).filter(
-        (m) =>
-          this.matchesCounty(m.homeTeam, countyName) ||
-          this.matchesCounty(m.awayTeam, countyName)
-      );
-
-      this._cache[instanceId].county = {
-        countyFixtures: results.countyFixtures,
-        countyResults: results.countyResults,
-      };
-    } catch (err) {
-      feedErrors++;
-      console.error("[MMM-GAA] County feed error:", err.message);
-      if (this._cache[instanceId].county) {
-        console.log("[MMM-GAA] Using cached county data");
-        results.countyFixtures = this._cache[instanceId].county.countyFixtures;
-        results.countyResults = this._cache[instanceId].county.countyResults;
-      } else {
-        results.countyFixtures = [];
-        results.countyResults = [];
       }
     }
 
@@ -199,6 +201,8 @@ module.exports = NodeHelper.create({
     // ── DATE FILTERING & SORTING ──
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
     const resultsCutoff = new Date(today);
     resultsCutoff.setDate(resultsCutoff.getDate() - (config.resultsDays || 7));
     const fixturesCutoff = new Date(today);
@@ -215,11 +219,13 @@ module.exports = NodeHelper.create({
     const sortAsc = (a, b) => (getDate(a) || Infinity) - (getDate(b) || Infinity);
     const sortDesc = (a, b) => (getDate(b) || 0) - (getDate(a) || 0);
 
+    // Results: include matches from resultsCutoff through today (inclusive).
+    // "tomorrow" is midnight tonight, so d < tomorrow includes all of today.
     const filterResults = (matches) =>
       matches
         .filter((m) => {
           const d = getDate(m);
-          return d && d >= resultsCutoff && d < today;
+          return d && d >= resultsCutoff && d < tomorrow;
         })
         .sort(sortDesc);
 
@@ -294,8 +300,16 @@ module.exports = NodeHelper.create({
     }
   },
 
-  fetchPage: function (url) {
+  fetchPage: function (url, _redirectCount) {
+    const redirectCount = _redirectCount || 0;
+    const MAX_REDIRECTS = 5;
+    const MAX_BODY_BYTES = 5 * 1024 * 1024; // 5 MB
+
     return new Promise((resolve, reject) => {
+      if (redirectCount >= MAX_REDIRECTS) {
+        return reject(new Error(`Too many redirects for ${url}`));
+      }
+
       const client = url.startsWith("https") ? https : http;
       const req = client.get(
         url,
@@ -309,13 +323,22 @@ module.exports = NodeHelper.create({
         },
         (res) => {
           if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-            return this.fetchPage(res.headers.location).then(resolve).catch(reject);
+            return this.fetchPage(res.headers.location, redirectCount + 1)
+              .then(resolve).catch(reject);
           }
           if (res.statusCode !== 200) {
             return reject(new Error(`HTTP ${res.statusCode} for ${url}`));
           }
           let data = "";
-          res.on("data", (chunk) => (data += chunk));
+          let bytes = 0;
+          res.on("data", (chunk) => {
+            bytes += chunk.length;
+            if (bytes > MAX_BODY_BYTES) {
+              req.destroy();
+              return reject(new Error(`Response too large for ${url}`));
+            }
+            data += chunk;
+          });
           res.on("end", () => resolve(data));
           res.on("error", reject);
         }

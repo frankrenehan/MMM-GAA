@@ -158,7 +158,7 @@ The module scrapes public endpoints on GAA county board WordPress sites:
 
 | Feed | Source | Method |
 |------|--------|--------|
-| **County team** | `fixtures-results-ajax/?countyBoardID=N` | Filtered to exact county name |
+| **County team** | `clubs-fixtures-results-ajax/?countyBoardID=N&level=inter_county` | Filtered to exact county name, split by played/unplayed |
 | **Senior club** | `clubs-fixtures-results-ajax/?countyBoardID=N&sport=X&level=club&grade=senior` | Single fetch, split by played/unplayed |
 | **Your club** | `clubs-fixtures-results-ajax/?countyBoardID=N` | Filtered by club name |
 
@@ -192,10 +192,10 @@ Adjust `max-width` in `MMM-GAA.css` to fit your mirror layout:
 
 - GAA scores: goals-points format (2-14 = 2×3 + 14 = 20 total)
 - Joint underage teams (e.g. "Fenians/ St Patricks") are captured by the club name filter
-- `highlightClub` uses loose substring matching and only affects display highlighting — it does not filter data
+- `highlightClub` uses loose substring matching and only affects display highlighting – it does not filter data
 - For counties other than Kilkenny, set `siteUrl` to your county board's site (e.g. `https://dublingaa.ie`)
 - Each endpoint returns max ~100 matches per request
-- `npm test` covers core filtering, sorting, matching, and classification logic — it does not test full HTML fixture parsing
+- `npm test` covers core filtering, sorting, matching, and classification logic – it does not test full HTML fixture parsing
 - Not all county board websites use the same theme – this module targets the standard GAA WordPress fixtures/results theme. Some counties may use a different structure
 
 ## License

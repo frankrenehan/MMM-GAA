@@ -28,13 +28,8 @@ require("./node_helper");
 const h = helperMethods;
 Module._resolveFilename = origResolveFilename;
 
-// ── Extract shortenCompetition from MMM-GAA.js for testing ──
-// It's a browser module so we can't require it directly. Parse the function out.
-const fs = require("fs");
-const path = require("path");
-const frontendSrc = fs.readFileSync(path.join(__dirname, "MMM-GAA.js"), "utf8");
-
 // Build a shortenCompetition function that takes (comp, sponsorPatterns)
+// Mirrors the logic from MMM-GAA.js for testability (browser module can't be required).
 function makeShortenCompetition(sponsorPatterns) {
   return function shortenCompetition(comp) {
     if (!comp) return "";
@@ -64,6 +59,61 @@ function makeShortenCompetition(sponsorPatterns) {
     }
     return short;
   };
+}
+
+// Mirror formatTime from MMM-GAA.js for testing
+function formatTime(dateStr, timeStr) {
+  if (!timeStr || !/^\d{1,2}:\d{2}$/.test(timeStr.trim())) return timeStr || "TBC";
+  let year, month, day;
+  const isoMatch = dateStr && dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    year = parseInt(isoMatch[1], 10);
+    month = parseInt(isoMatch[2], 10) - 1;
+    day = parseInt(isoMatch[3], 10);
+  } else if (dateStr) {
+    const months = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
+    const m = dateStr.match(/(\d+)\w*\s+(\w{3})\w*\s+(\d{4})/);
+    if (m && months[m[2].toLowerCase()] !== undefined) {
+      day = parseInt(m[1], 10); month = months[m[2].toLowerCase()]; year = parseInt(m[3], 10);
+    }
+  }
+  if (year === undefined) return timeStr;
+  const parts = timeStr.trim().split(":");
+  const hr = parseInt(parts[0], 10);
+  const min = parseInt(parts[1], 10);
+  try {
+    const probe = new Date(Date.UTC(year, month, day, hr, min));
+    const dublinParts = new Intl.DateTimeFormat("en", {
+      timeZone: "Europe/Dublin", hour: "numeric", minute: "numeric", hour12: false,
+    }).formatToParts(probe);
+    const dublinH = parseInt(dublinParts.find((p) => p.type === "hour").value, 10);
+    const dublinM = parseInt(dublinParts.find((p) => p.type === "minute").value, 10);
+    let offsetMin = (dublinH * 60 + dublinM) - (hr * 60 + min);
+    if (offsetMin > 720) offsetMin -= 1440;
+    if (offsetMin < -720) offsetMin += 1440;
+    const utcMs = Date.UTC(year, month, day, hr, min) - offsetMin * 60000;
+    return new Date(utcMs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  } catch (e) { return timeStr; }
+}
+
+// Helper: get the UTC hour that formatTime computes for a Dublin time
+// (timezone-independent assertion target)
+function dublinTimeToUtcHour(dateStr, h, min) {
+  const isoMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+  const year = parseInt(isoMatch[1], 10);
+  const month = parseInt(isoMatch[2], 10) - 1;
+  const day = parseInt(isoMatch[3], 10);
+  const probe = new Date(Date.UTC(year, month, day, h, min));
+  const dublinParts = new Intl.DateTimeFormat("en", {
+    timeZone: "Europe/Dublin", hour: "numeric", minute: "numeric", hour12: false,
+  }).formatToParts(probe);
+  const dublinH = parseInt(dublinParts.find((p) => p.type === "hour").value, 10);
+  const dublinM = parseInt(dublinParts.find((p) => p.type === "minute").value, 10);
+  let offsetMin = (dublinH * 60 + dublinM) - (h * 60 + min);
+  if (offsetMin > 720) offsetMin -= 1440;
+  if (offsetMin < -720) offsetMin += 1440;
+  const utcMs = Date.UTC(year, month, day, h, min) - offsetMin * 60000;
+  return new Date(utcMs).getUTCHours();
 }
 
 let passed = 0;
@@ -142,6 +192,56 @@ test("played: 0-0 without throw-in time (genuine scoreless draw)", () => {
   assert.strictEqual(h.isMatchPlayed("0-0", "0-0", "FT"), true);
 });
 
+test("non-standard scores: W/O, Concede treated as played", () => {
+  // Any non-empty score pair without the 0-0+time edge case is treated as played
+  assert.strictEqual(h.isMatchPlayed("W/O", "W/O", ""), true);
+  assert.strictEqual(h.isMatchPlayed("Concede", "0-0", ""), true);
+});
+
+test("only one score present: not played", () => {
+  assert.strictEqual(h.isMatchPlayed("", "1-5", ""), false);
+});
+
+// ════════════════════════════════════════════
+// calcTotal (extracted from MMM-GAA.js for testing)
+// ════════════════════════════════════════════
+console.log("\ncalcTotal:");
+
+// Mirror the calcTotal logic for testing since it's in the browser module
+function calcTotal(score) {
+  if (!score) return 0;
+  const parts = score.trim().split("-");
+  if (parts.length === 2) {
+    const goals = parseInt(parts[0], 10) || 0;
+    const points = parseInt(parts[1], 10) || 0;
+    return goals * 3 + points;
+  }
+  return 0;
+}
+
+test("standard score", () => {
+  assert.strictEqual(calcTotal("2-14"), 20);
+  assert.strictEqual(calcTotal("0-0"), 0);
+  assert.strictEqual(calcTotal("1-0"), 3);
+  assert.strictEqual(calcTotal("0-5"), 5);
+});
+
+test("empty/null score", () => {
+  assert.strictEqual(calcTotal(""), 0);
+  assert.strictEqual(calcTotal(null), 0);
+  assert.strictEqual(calcTotal(undefined), 0);
+});
+
+test("score with whitespace", () => {
+  assert.strictEqual(calcTotal(" 2-14 "), 20);
+});
+
+test("non-standard score format returns 0", () => {
+  assert.strictEqual(calcTotal("14"), 0);
+  assert.strictEqual(calcTotal("W/O"), 0);
+  assert.strictEqual(calcTotal("2-14-extra"), 0);
+});
+
 // ════════════════════════════════════════════
 // normalizeName
 // ════════════════════════════════════════════
@@ -205,6 +305,12 @@ test("rejects substring false positives", () => {
 test("handles empty inputs", () => {
   assert.strictEqual(h.matchesClub("", "Fenians"), false);
   assert.strictEqual(h.matchesClub("Fenians", ""), false);
+});
+
+test("handles club names with regex-special characters", () => {
+  assert.strictEqual(h.matchesClub("O'Loughlin (Gaels)", "O'Loughlin (Gaels)"), true);
+  assert.strictEqual(h.matchesClub("O'Loughlin (Gaels)/ Dicksboro", "O'Loughlin (Gaels)"), true);
+  assert.strictEqual(h.matchesClub("Dicksboro", "O'Loughlin (Gaels)"), false);
 });
 
 // ════════════════════════════════════════════
@@ -291,7 +397,7 @@ test("uses cached data when fetch fails after a successful fetch", async () => {
   };
 
   const config = {
-    instanceId: "15-team-a",
+    instanceId: "15-hurling-team-a",
     countyBoardID: 15,
     countyName: "Kilkenny",
     sport: "hurling",
@@ -308,9 +414,9 @@ test("uses cached data when fetch fails after a successful fetch", async () => {
   await instance.fetchAllData(config);
   assert.strictEqual(notifications.length, 1);
   assert.strictEqual(notifications[0].type, "GAA_DATA");
-  assert.ok(instance._cache["15-team-a"].county);
-  assert.ok(instance._cache["15-team-a"].senior);
-  assert.ok(instance._cache["15-team-a"].club);
+  assert.ok(instance._cache["15-hurling-team-a"].county);
+  assert.ok(instance._cache["15-hurling-team-a"].senior);
+  assert.ok(instance._cache["15-hurling-team-a"].club);
 
   // Second fetch: all fail, should use cache and still send GAA_DATA
   notifications.length = 0;
@@ -328,7 +434,7 @@ test("sends GAA_ERROR when all feeds fail with no cache", async () => {
   instance.fetchPage = async function () { throw new Error("fail"); };
 
   await instance.fetchAllData({
-    instanceId: "15-",
+    instanceId: "15-hurling-",
     countyBoardID: 15,
     countyName: "Kilkenny",
     sport: "hurling",
@@ -358,7 +464,7 @@ test("payload includes lastUpdated ISO string", async () => {
 
   const before = new Date().toISOString();
   await instance.fetchAllData({
-    instanceId: "15-",
+    instanceId: "15-hurling-",
     countyBoardID: 15,
     countyName: "Kilkenny",
     sport: "hurling",
@@ -411,7 +517,7 @@ test("fixtures are sorted date ascending (nearest first)", async () => {
   };
 
   await instance.fetchAllData({
-    instanceId: "15-",
+    instanceId: "15-hurling-",
     countyBoardID: 15,
     countyName: "Kilkenny",
     sport: "hurling",
@@ -449,8 +555,8 @@ test("results are sorted date descending (most recent first)", async () => {
   let callNum = 0;
   instance.fetchPage = async function () {
     callNum++;
-    // Return results on call 2 (county results), empty for the rest
-    if (callNum === 2) {
+    // Return results on call 1 (county feed — single fetch, split by isPlayed)
+    if (callNum === 1) {
       return `<div class="fix_res_date">${fmt(d1)}</div>` +
         '<div class="competition"><div class="competition-name"><a>C</a></div>' +
         '<div class="comp_details"><div class="home_team">Kilkenny</div>' +
@@ -471,7 +577,7 @@ test("results are sorted date descending (most recent first)", async () => {
   };
 
   await instance.fetchAllData({
-    instanceId: "15-",
+    instanceId: "15-hurling-",
     countyBoardID: 15,
     countyName: "Kilkenny",
     sport: "hurling",
@@ -528,7 +634,7 @@ test("backfills with future fixtures outside window when too few in window", asy
   };
 
   await instance.fetchAllData({
-    instanceId: "15-",
+    instanceId: "15-hurling-",
     countyBoardID: 15,
     countyName: "Kilkenny",
     sport: "hurling",
@@ -581,7 +687,7 @@ test("never includes past matches in fixture fallback", async () => {
   };
 
   await instance.fetchAllData({
-    instanceId: "15-",
+    instanceId: "15-hurling-",
     countyBoardID: 15,
     countyName: "Kilkenny",
     sport: "hurling",
@@ -594,6 +700,87 @@ test("never includes past matches in fixture fallback", async () => {
     const d = h.parseGAADate(f.date);
     assert.ok(d >= today, `fixture date ${f.date} should not be in the past`);
   }
+});
+
+test("returns empty array when all fixtures are in the past", async () => {
+  const instance = Object.create(h);
+  instance._cache = {};
+  const notifications = [];
+  instance.sendSocketNotification = (type, data) => notifications.push({ type, data });
+
+  const today = new Date();
+  const past1 = new Date(today); past1.setDate(past1.getDate() - 5);
+  const past2 = new Date(today); past2.setDate(past2.getDate() - 10);
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+
+  let callNum = 0;
+  instance.fetchPage = async function () {
+    callNum++;
+    if (callNum === 1) {
+      return `<div class="fix_res_date">${fmt(past1)}</div>` +
+        '<div class="competition"><div class="competition-name"><a>C</a></div>' +
+        '<div class="comp_details"><div class="home_team">Kilkenny</div>' +
+        '<div class="away_team">Cork</div><div class="time">14:00</div></div></div>' +
+        `<div class="fix_res_date">${fmt(past2)}</div>` +
+        '<div class="competition"><div class="competition-name"><a>C</a></div>' +
+        '<div class="comp_details"><div class="home_team">Kilkenny</div>' +
+        '<div class="away_team">Dublin</div><div class="time">15:00</div></div></div>';
+    }
+    return "";
+  };
+
+  await instance.fetchAllData({
+    instanceId: "15-hurling-",
+    countyBoardID: 15,
+    countyName: "Kilkenny",
+    sport: "hurling",
+    fixturesDays: 14,
+    maxCountyFixtures: 4,
+  });
+
+  const fixtures = notifications[0].data.countyFixtures;
+  assert.strictEqual(fixtures.length, 0, "should return no fixtures when all are in the past");
+});
+
+// ════════════════════════════════════════════
+// Today's results inclusion
+// ════════════════════════════════════════════
+console.log("\ntoday's results:");
+
+test("results from today are included", async () => {
+  const instance = Object.create(h);
+  instance._cache = {};
+  const notifications = [];
+  instance.sendSocketNotification = (type, data) => notifications.push({ type, data });
+
+  const today = new Date();
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+
+  let callNum = 0;
+  instance.fetchPage = async function () {
+    callNum++;
+    if (callNum === 1) {
+      return `<div class="fix_res_date">${fmt(today)}</div>` +
+        '<div class="competition"><div class="competition-name"><a>C</a></div>' +
+        '<div class="comp_details"><div class="home_team">Kilkenny</div>' +
+        '<div class="away_team">Cork</div><div class="home_score">2-14</div>' +
+        '<div class="away_score">1-10</div></div></div>';
+    }
+    return "";
+  };
+
+  await instance.fetchAllData({
+    instanceId: "15-hurling-",
+    countyBoardID: 15,
+    countyName: "Kilkenny",
+    sport: "hurling",
+    resultsDays: 7,
+    maxCountyResults: 10,
+  });
+
+  const results = notifications[0].data.countyResults;
+  assert.strictEqual(results.length, 1, "today's result should be included");
+  assert.strictEqual(results[0].homeTeam, "Kilkenny");
 });
 
 // ════════════════════════════════════════════
@@ -631,7 +818,7 @@ test("concurrent fetches with different instanceIds return independent data", as
   // Fetch both concurrently
   await Promise.all([
     instance.fetchAllData({
-      instanceId: "15-fenians",
+      instanceId: "15-hurling-fenians",
       countyBoardID: 15,
       countyName: "Kilkenny",
       sport: "hurling",
@@ -641,7 +828,7 @@ test("concurrent fetches with different instanceIds return independent data", as
       maxClubFixtures: 6,
     }),
     instance.fetchAllData({
-      instanceId: "27-thurles",
+      instanceId: "27-hurling-thurles",
       countyBoardID: 27,
       countyName: "Tipperary",
       siteUrl: "https://tipperary.gaa.ie",
@@ -655,8 +842,8 @@ test("concurrent fetches with different instanceIds return independent data", as
 
   assert.strictEqual(notifications.length, 2, "should have two GAA_DATA responses");
 
-  const kkPayload = notifications.find((n) => n.data.instanceId === "15-fenians");
-  const tipPayload = notifications.find((n) => n.data.instanceId === "27-thurles");
+  const kkPayload = notifications.find((n) => n.data.instanceId === "15-hurling-fenians");
+  const tipPayload = notifications.find((n) => n.data.instanceId === "27-hurling-thurles");
   assert.ok(kkPayload, "should have Kilkenny payload");
   assert.ok(tipPayload, "should have Tipperary payload");
 
@@ -681,8 +868,55 @@ test("concurrent fetches with different instanceIds return independent data", as
   }
 
   // Caches should be keyed independently
-  assert.ok(instance._cache["15-fenians"], "should have Kilkenny cache");
-  assert.ok(instance._cache["27-thurles"], "should have Tipperary cache");
+  assert.ok(instance._cache["15-hurling-fenians"], "should have Kilkenny cache");
+  assert.ok(instance._cache["27-hurling-thurles"], "should have Tipperary cache");
+});
+
+// ════════════════════════════════════════════
+// formatTime (Dublin → local timezone)
+// ════════════════════════════════════════════
+console.log("\nformatTime:");
+
+test("returns TBC for empty or missing time", () => {
+  assert.strictEqual(formatTime("2026-07-18", ""), "TBC");
+  assert.strictEqual(formatTime("2026-07-18", null), "TBC");
+  assert.strictEqual(formatTime("2026-07-18", undefined), "TBC");
+});
+
+test("returns raw time for non-time strings", () => {
+  assert.strictEqual(formatTime("2026-07-18", "TBC"), "TBC");
+  assert.strictEqual(formatTime("2026-07-18", "FT"), "FT");
+});
+
+test("returns raw time when date is unparseable", () => {
+  assert.strictEqual(formatTime("TBC", "14:00"), "14:00");
+  assert.strictEqual(formatTime("", "14:00"), "14:00");
+});
+
+test("returns a valid time string for a normal fixture time", () => {
+  const result = formatTime("2026-07-18", "14:00");
+  // Can't assert exact local time (depends on test machine timezone),
+  // but it should be a non-empty string containing digits and a colon/separator
+  assert.ok(result, "should return a non-empty string");
+  assert.ok(/\d/.test(result), "should contain digits");
+});
+
+test("summer Dublin time (IST, UTC+1): 14:00 Dublin = 13:00 UTC", () => {
+  // July is summer in Ireland → IST (UTC+1)
+  const utcH = dublinTimeToUtcHour("2026-07-18", 14, 0);
+  assert.strictEqual(utcH, 13, "14:00 Dublin in summer should be 13:00 UTC");
+});
+
+test("winter Dublin time (GMT, UTC+0): 14:00 Dublin = 14:00 UTC", () => {
+  // January is winter in Ireland → GMT (UTC+0)
+  const utcH = dublinTimeToUtcHour("2026-01-18", 14, 0);
+  assert.strictEqual(utcH, 14, "14:00 Dublin in winter should be 14:00 UTC");
+});
+
+test("parses verbose GAA date format for time conversion", () => {
+  const result = formatTime("Sunday 18th Jul 2026", "15:30");
+  assert.ok(result, "should return a non-empty string");
+  assert.ok(/\d/.test(result), "should contain digits");
 });
 
 // ── Summary ──
