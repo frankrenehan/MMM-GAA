@@ -184,7 +184,7 @@ Adjust `max-width` in `MMM-GAA.css` to fit your mirror layout:
 
 ```css
 .mmm-gaa {
-  max-width: 300px; /* increase or decrease as needed */
+  max-width: 250px; /* increase or decrease as needed */
 }
 ```
 
