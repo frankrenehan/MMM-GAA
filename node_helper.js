@@ -143,12 +143,15 @@ module.exports = NodeHelper.create({
     }
 
     // ── FEED 3: Your club (all grades) ──
+    // Uses fixtures-results-ajax/ instead of clubs-fixtures-results-ajax/
+    // because the clubs endpoint caps at ~100 matches, which can exclude
+    // smaller clubs. The fixtures endpoint returns all matches uncapped.
     try {
       const clubSlug = config.clubSlug;
       const clubName = config.clubDisplayName || clubSlug;
       if (clubSlug) {
         const allClubUrl = this.buildUrl(
-          `${baseUrl}/clubs-fixtures-results-ajax/`,
+          `${baseUrl}/fixtures-results-ajax/`,
           {
             countyBoardID: config.countyBoardID,
             orderTBCLast: "Y",

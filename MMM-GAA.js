@@ -23,16 +23,24 @@ Module.register("MMM-GAA", {
     showVenue: true,
     showCompetition: true,
     sponsorPatterns: [
+      // Kilkenny club sponsors
       "St\\.?\\s*Canice'?s?\\s*Credit\\s*Union\\s*",
       "St\\.?\\s*Cannice'?s?\\s*Credit\\s*Union\\s*",
+      "St\\.?\\s*Canice'?s?\\s*Credit\\s*Union\\s*", // repeated prefix on some comps
       "J\\.?J\\.?\\s*Kavanagh\\s*(and|&)\\s*Sons?\\s*",
       "Kilkenny\\s*Vehicle\\s*Centre\\s*",
       "Duggan\\s*Steel\\s*",
       "Michael\\s*Lyng\\s*Motors?\\s*(Hyundai)?\\s*",
       "Iverk\\s*Produce\\s*",
       "Country\\s*Style\\s*Foods?\\s*",
+      // National / inter-county sponsors
       "Allianz\\s*",
-      "AIB\\s*GAA\\s*",
+      "AIB\\s+(AIB\\s+)?",
+      "Electric\\s*Ireland\\s*(\\d{4}\\s*)?",
+      "Fulfil\\s*",
+      "[Oo]'?[Nn]eills?\\.com\\s*",
+      "Arrabawn\\s*(Tipperary\\s*Arrabawn)?\\s*",
+      "John\\s*Doyle\\s*Family\\s*",
     ],
   },
 
