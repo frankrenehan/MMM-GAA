@@ -4,6 +4,7 @@
 .mmm-gaa {
   font-family: "Roboto Condensed", "Helvetica Neue", sans-serif;
   max-width: 250px;
+  margin-left: auto;  /* push the module box to the right edge */
   line-height: 1.4;
   text-align: left;
 }
